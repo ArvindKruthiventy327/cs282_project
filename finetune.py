@@ -35,7 +35,7 @@ def bc_finetune(cfg: DictConfig):
             f.write(agent_yaml)
 
         agent = hydra.utils.instantiate(cfg.agent)
-        trainer = hydra.utils.instantiate(cfg.trainer, model=agent, device_id=0)
+        trainer = hydra.utils.instantiate(cfg.trainer, model=agent, device_id=cfg.gpu_id)
 
         # build task, replay buffer, and dataloader
         task = hydra.utils.instantiate(

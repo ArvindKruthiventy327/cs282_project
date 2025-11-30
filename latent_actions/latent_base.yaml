@@ -1,0 +1,17 @@
+data_paths:
+# - "/home/horowitz3/latent-diffusion_project/datasets/three_piece_assembly/demo_src_three_piece_assembly_task_D0/demo.hdf5"
+# - "/home/horowitz3/latent-diffusion_project/datasets/three_piece_assembly/demo_src_three_piece_assembly_task_D1/demo.hdf5"
+- /home/horowitz3/latent-diffusion_project/datasets
+
+cameras: 
+- agentview_image 
+- robot0_eye_in_hand_image 
+- robot0_eye_in_hand_back_image 
+
+normalize_state: True
+state: 
+- robot0_eef_pos_rel_base 
+- robot0_eef_quat_rel_base
+- robot0_gripper_qpos 
+
+save_path: /home/horowitz3/latent-diffusion_project/datasets/three_piece_assembly_latent_actions

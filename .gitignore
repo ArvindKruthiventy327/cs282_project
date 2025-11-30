@@ -1,6 +1,9 @@
 *.jpg
 *.gif
 *.mp4
+*.pt 
+*.pth 
+*.npy
 *.png
 __pycache__/
 bc_finetune/

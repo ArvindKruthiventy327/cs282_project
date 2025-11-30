@@ -27,13 +27,13 @@ class BaselinePolicy:
         with open(Path(agent_path, "exp_config.yaml"), "r") as f:
             config_yaml = f.read()
             exp_config = yaml.safe_load(config_yaml)
-            self.cam_idx = exp_config['params']['task']['train_buffer']['cam_idx']
+            self.cam_idx = exp_config['params']['task']['train_buffer']['cam_indexes']
 
         agent = hydra.utils.instantiate(agent_config)
         save_dict = torch.load(Path(agent_path, model_name), map_location="cpu")
         agent.load_state_dict(save_dict['model'])
         self.agent = agent.eval().cuda()
-
+        print("Initialized model")
         self.transform = get_transform_by_name('preproc')
     
     def _proc_image(self, rgb_img, size=(256,256)):

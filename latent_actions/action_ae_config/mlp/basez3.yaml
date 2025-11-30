@@ -1,0 +1,24 @@
+model: 
+  type: VAE
+  obs_dim: [11, 1]
+  ac_dim:  [30, 7]
+  latent_dim: 20 
+  hidden: [160, 40, 20]
+
+dataloader: 
+  raw_data: "/extra_storage/three_piece_assembly_latent_actions/buf.pkl"
+  n_val: 10
+  n_test: 2
+  ac_chunk: 30 
+  obs_dim: 11
+  ac_dim: 7 
+  batch_size: 50
+
+
+optim: 
+  lr: 1.0e-3
+  log_freq: 100
+  save_freq: 1000
+  epochs: 20
+
+train_dir: /home/blank/latent-diffusion-policy/latent_actions/z3
