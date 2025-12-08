@@ -1,0 +1,25 @@
+model: 
+  type: VQVAE
+  obs_dim: [9, 1]
+  ac_dim:  [32, 10]
+  latent_dim: 75
+  hidden: [300, 300, 300, 300]
+  n_embeddings: 256
+
+dataloader: 
+  raw_data: "/extra_storage/stack_three_latent_actions/buf.pkl"
+  n_val: 10
+  n_test: 2
+  ac_chunk: 32 
+  obs_dim: 9
+  ac_dim: 7 
+  batch_size: 50
+
+
+optim: 
+  lr: 0.003
+  log_freq: 100
+  save_freq: 1000
+  epochs: 100
+
+train_dir: /home/blank/cs282_project/latent_actions/mlp_vqvae_stacking

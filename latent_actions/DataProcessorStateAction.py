@@ -40,10 +40,10 @@ class DataProcessorStateAction:
         quat = state[3:7] 
         quat = np.array([quat[1], quat[2], quat[3], quat[0]])  
          # Extract the roll, pitch, yaw angles
-        gripper_state = state[7:]
+        # gripper_state = state[7:]
         rotm = R.from_quat(quat).as_matrix()
         rot6d_state = rotm_to_rot6d(rotm)
-        processed_state = np.concatenate((xyz_state, rot6d_state, gripper_state), axis=0)
+        processed_state = np.concatenate((xyz_state, rot6d_state), axis=0)
         return processed_state
     
     def process_dataset(self): 
@@ -76,10 +76,10 @@ class DataProcessorStateAction:
             print(f"Normalizing state: {state_norm}")
             for ep_idx, ep_data in enumerate(dataset): 
                 for t in range(len(ep_data)): 
-                    state, act = ep_data[t]
+                    state, act, reward = ep_data[t]
                     state = (state - norm_dict["state_norm"]["loc"]) / norm_dict["state_norm"]["scale"]
                     
-                    dataset[ep_idx][t] = (state, act) 
+                    dataset[ep_idx][t] = (state, act, reward) 
         print(f"Pre action_normalization")
         actions_pre_norm = np.array(copy.deepcopy(actions))
         norm_dict["action_norm"] = self._max_min_norm(actions)
@@ -109,12 +109,34 @@ class DataProcessorStateAction:
             full_state = np.concatenate(full_state, axis=0)
             proc_state = self.preprocess_state(full_state)
             reward = float(0)
-            ep_data.append((proc_state, actions[t]))
+            if self.config["mimicgen"]: 
+                action = self.mimicgen2real_ac(actions[t], full_state)
+                ep_data.append((proc_state, action, reward))
+                ep_actions.append(action)
+            else: 
+                ep_data.append((proc_state, actions[t], reward))
+                ep_actions.append(actions[t])
             ep_states.append(proc_state)
-            ep_actions.append(actions[t])
+            
         return ep_data, ep_states, ep_actions 
     
+    def mimicgen2real_ac(self, action, state): 
+        pose_t = np.eye(4)
+        pose_t[:3, :3] = R.from_quat(state[3:7]).as_matrix()
+        pose_t[:3, 3] = state[:3].reshape((-1,))
+        cur_rotm = pose_t[:3, :3]
+        cur_xyz = pose_t[:3, 3]
+        
+        xyz = action[:3]
+        rpy = action[3:6]
+        offset_mat = np.array([[0, -1 , 0],
+                            [ 1 , 0, 0],
+                            [ 0,   0  ,1]])
+        target_xyz = cur_xyz + xyz * 0.05 
+        target_rotm = R.from_rotvec(rpy * 0.05).as_matrix() @ offset_mat @ cur_rotm
 
+        target_rot6d = rotm_to_rot6d(target_rotm)
+        return np.concatenate((target_xyz, target_rot6d, [action[-1]]), axis=0)
     def _gaussian_norm(self, all_acs):
         all_acs_arr = np.array(all_acs)
         mean = np.mean(all_acs_arr, axis=0)
@@ -144,5 +166,5 @@ class DataProcessorStateAction:
 
 if __name__ == "__main__": 
 
-    dp = DataProcessorStateAction("/home/horowitz3/dit-policy/latent_actions/latent_base.yaml")
+    dp = DataProcessorStateAction("latent_base.yaml")
     dp.process_dataset()

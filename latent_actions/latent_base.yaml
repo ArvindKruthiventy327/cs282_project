@@ -1,8 +1,12 @@
 data_paths:
 # - "/home/horowitz3/latent-diffusion_project/datasets/three_piece_assembly/demo_src_three_piece_assembly_task_D0/demo.hdf5"
 # - "/home/horowitz3/latent-diffusion_project/datasets/three_piece_assembly/demo_src_three_piece_assembly_task_D1/demo.hdf5"
-- /home/horowitz3/latent-diffusion_project/datasets
+# - /home/horowitz3/latent-diffusion_project/datasets
+  - /extra_storage/core_datasets/three_piece_assembly/demo_src_three_piece_assembly_task_D0/demo.hdf5
+  - /extra_storage/core_datasets/threading/demo_src_threading_task_D0/demo.hdf5
+  - /extra_storage/core_datasets/stack_three/demo_src_stack_three_task_D0/demo.hdf5
 
+mimicgen: True
 cameras: 
 - agentview_image 
 - robot0_eye_in_hand_image 
@@ -10,8 +14,7 @@ cameras:
 
 normalize_state: True
 state: 
-- robot0_eef_pos_rel_base 
-- robot0_eef_quat_rel_base
-- robot0_gripper_qpos 
+- robot0_eef_pos 
+- robot0_eef_quat
 
-save_path: /home/horowitz3/latent-diffusion_project/datasets/three_piece_assembly_latent_actions
+save_path: /extra_storage/all_tasks_latent_actions

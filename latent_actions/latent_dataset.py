@@ -38,14 +38,12 @@ class LatentActionBuffer(Dataset):
         
         assert mode in ("train", "val", "test"), "Mode must be train/test"
         buf = self.load_buffer(buffer_path)
-        print(len(buf))
         assert len(buf) > n_test, "Dataset is too small"
         BUF_SHUFFLE_RNG = 3904767649
         rng = random.Random(BUF_SHUFFLE_RNG)
 
         # get and shuffle list of buf indices
         idx = list(range(len(buf)))
-        print(idx)
         rng.shuffle(idx)
 
         if mode == "train": 
@@ -91,3 +89,54 @@ class LatentActionBuffer(Dataset):
     def __getitem__(self, idx): 
         state_t, actions_chunk = self.s_a[idx]
         return state_t, actions_chunk
+
+if __name__ == "__main__": 
+    import pickle as pkl 
+    from scipy.spatial.transform import Rotation as R
+    import matplotlib.pyplot as plt
+    from common_transforms import rotm_to_rot6d,cart2se3,vee_map,get_rel_command
+
+    src_dir = "/extra_storage/equicontact_stacking_fixed_pose_sa/buf.pkl"
+    n_test = 0
+    n_val = 0
+    ac_chunk = 30
+    obs_dim = [11, 1]
+    ac_dim = [30, 10]
+    batch_size = 50
+    action_dataset = LatentActionBuffer(src_dir, 
+                                                0,
+                                                0, 
+                                                mode="test",
+                                                obs_dim=obs_dim, 
+                                                ac_chunk = ac_chunk, 
+                                                ac_dim = ac_dim)
+    test_loader = DataLoader(action_dataset, 
+                                  batch_size = 1, 
+                                  shuffle = False, 
+                                  num_workers=1) 
+    
+    print(len(test_loader))
+    src_demo_path = "/extra_storage/data_collection/datasets/stack_fixed_pose/demo_193.pkl"
+    with open(src_demo_path, "rb") as f: 
+        demo = pkl.load(f)
+    # print(demo["observations"][0])
+    def proc_action(action): 
+        
+        trans = action[:3]
+        ori = action[3:6]
+        gripper = action[-1]
+        ori_rot6d = rotm_to_rot6d(R.from_rotvec(ori).as_matrix())
+        proc_action = np.concatenate([trans, ori_rot6d, [gripper]])
+        return proc_action 
+    actions = []
+    for i in demo["actions"][0:30]: 
+        proc_ac = proc_action(i)
+        actions.append(proc_ac)
+    actions = np.array(actions)
+    # print(demo["actions"][0:30])
+    counter = 0
+    for batch in test_loader: 
+        if counter >= 1: 
+            break
+        print(torch.from_numpy(actions) - batch[1])
+        counter+=1

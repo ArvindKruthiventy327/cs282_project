@@ -1,0 +1,24 @@
+data_paths:
+src_dir: /extra_storage/data_collection/datasets/stack_fixed
+
+cameras: 
+- agentview_image 
+- robot0_eye_in_hand_image 
+
+normalize_state: True
+normalize_action: False
+state: 
+- robot0_eef_pos
+- robot0_eef_quat_site
+save_dir: /extra_storage/equicontact_latent_stacking_fixed_test
+
+mimicgen: False
+
+autoencoder: 
+  type: MLP_VAE
+  obs_dim: [9, 1]
+  ac_dim:  [30, 10]
+  latent_dim: 150
+  hidden: [300, 300, 300, 300, 300, 300, 300]
+  ckpt_path: /home/blank/cs282_project/latent_actions/mlp_vae_equicontact/checkpoint.pth
+  norm_path: /extra_storage/equicontact_stacking_fixed_pose_sa/ac_norm.json

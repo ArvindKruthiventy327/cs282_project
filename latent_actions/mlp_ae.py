@@ -3,6 +3,24 @@ import torch.nn as nn
 import torch.nn.functional as F 
 import copy 
 
+class ResidualBlock(nn.Module): 
+
+    def __init__(self, dim_in, dim_out, activation=True): 
+        super().__init__()
+        self.block = nn.ModuleList([ 
+            nn.LayerNorm(dim_in),
+            nn.Linear(dim_in, dim_out),             
+        ])
+        if activation: 
+            self.block.append(nn.GELU())
+        self.in_proj = nn.Linear(dim_in, dim_out)
+        
+    def forward(self, x): 
+        residual = x
+        for layer in self.block: 
+            x = layer(x)
+        return  residual + x
+    
 class Encoder(nn.Module): 
 
     def __init__(self, obs_dim, ac_dim, latent_dim, hidden): 
@@ -12,18 +30,27 @@ class Encoder(nn.Module):
         self.ac_dim = ac_dim
         flattened_in_dim = (self.obs_dim[0] * self.obs_dim[1]) + (self.ac_dim[0] * self.ac_dim[1])
         layer_dims = copy.deepcopy(hidden)
-        layer_dims.reverse()
-        layer_dims.append(flattened_in_dim)
-        layer_dims.reverse()
+        # layer_dims.reverse()
+        # layer_dims.append(flattened_in_dim)
+        # layer_dims.reverse()
         layer_dims.append(latent_dim)
         model = []
-        for i in range(len(layer_dims) - 1):
-            if i > 0: 
-                model.append(nn.LayerNorm(layer_dims[i]))
-            model.append(nn.Linear(layer_dims[i], 
-                                        layer_dims[i+1]))
-            model.append(nn.GELU())
+        # for i in range(len(layer_dims) - 1):
+        #     if i > 0: 
+        #         model.append(nn.LayerNorm(layer_dims[i]))
+        #     model.append(nn.Linear(layer_dims[i], 
+        #                                 layer_dims[i+1]))
+        #     model.append(nn.GELU())
+        model.append( nn.Linear(flattened_in_dim, hidden[0] ))
+        for i in range(len(layer_dims) - 2): 
+            # if i == range(len(layer_dims) - 2):
+            #     model.append(ResidualBlock(layer_dims[i],layer_dims[i+1], activation=False))
+            # else:
+            model.append(ResidualBlock(layer_dims[i],layer_dims[i+1]))
+        model.append(nn.Linear(layer_dims[-2], layer_dims[-1]))
         self.model = nn.ModuleList(model)
+        print(f"Architecture of the model: \n {self.model}")
+
     def forward(self, obs_t, traj): 
 
         x = torch.cat([obs_t, traj], dim=1) 
@@ -38,23 +65,37 @@ class Decoder(nn.Module):
         self.latent_dim = latent_dim
         self.output_dim = output_dim 
         layer_dims = copy.deepcopy(hidden)
-        layer_dims.reverse()
-        layer_dims.append(latent_dim)
-        layer_dims.reverse()
+        # layer_dims.reverse()
+        # layer_dims.append(latent_dim)
+        # layer_dims.reverse()
         layer_dims.append(output_dim)
         model = []
         # print("decoder_layers", layer_dims)
-        for i in range(len(layer_dims) - 1):
-            if i > 0: 
-                model.append(nn.LayerNorm(layer_dims[i]))
-            model.append(nn.Linear(layer_dims[i], 
-                                        layer_dims[i+1]))
-            model.append(nn.GELU())
-        model.pop(-1)
-        self.model = nn.ModuleList(model)
-    def forward(self, latent): 
+        # for i in range(len(layer_dims) - 1):
+        #     if i > 0: 
+        #         model.append(nn.LayerNorm(layer_dims[i]))
+        #     model.append(nn.Linear(layer_dims[i], 
+        #                                 layer_dims[i+1]))
+        #     model.append(nn.GELU())
+        # model.pop(-1)
 
-        x = latent
+        # for i in range(len(layer_dims) - 1): 
+        #     if i == range(len(layer_dims) - 2):
+        #         model.append(ResidualBlock(layer_dims[i],layer_dims[i+1], activation=False))
+        #     else:
+        #         model.append(ResidualBlock(layer_dims[i],layer_dims[i+1]))
+        model.append( nn.Linear(latent_dim, hidden[0] ))
+        for i in range(len(layer_dims) - 2): 
+            # if i == range(len(layer_dims) - 2):
+            #     model.append(ResidualBlock(layer_dims[i],layer_dims[i+1], activation=False))
+            # else:
+            model.append(ResidualBlock(layer_dims[i],layer_dims[i+1]))
+        model.append(nn.Linear(layer_dims[-2], layer_dims[-1]))
+        self.model = nn.ModuleList(model)
+        print(f"Architecture of the model: \n {self.model}")
+    def forward(self, obs_t, latent): 
+        
+        x = torch.cat([obs_t, latent], dim=1)
         for layer in self.model: 
             x = layer(x)
         return x
@@ -91,13 +132,14 @@ class MLPVAE(MLPAutoEncoder):
         eps = torch.randn_like(z).to(z.device)
         mu = self.mu_proj(z)
         sigma = self.sigma_proj(z)
+        sigma = torch.clamp(sigma, min=-20, max=3)
         z_sample = mu + torch.exp(0.5 * sigma) * eps
         return z_sample, mu, sigma 
     
     def forward(self, obs_t, traj): 
         z = self.enc(obs_t, traj)
         z_sample, mu, sigma = self.reparametrize(z)
-        x_hat = self.dec(torch.cat([obs_t, z_sample], dim=1))
+        x_hat = self.dec(obs_t, z_sample)
         # x_hat = torch.sigmoid(x_hat)
         return x_hat, mu, sigma
             
@@ -195,31 +237,33 @@ class MLP_VQVAE(MLPAutoEncoder):
             n_embeddings=n_embeddings,
             embedding_dim=latent_dim
         )
-
+        self.z_e = None
         
 
     def forward(self, obs_t, traj):  # x: (B, T, action_dim)
         z_e = self.enc(obs_t, traj)
+        self.z_e = z_e.clone().detach()
         z_q, indices = self.quantizer(z_e)
-        out = self.dec(torch.cat([obs_t, z_q], dim=1))
+        out = self.dec(obs_t, z_q)
         return out, z_q, z_e, indices
     
 def ae_loss(x, x_hat): 
-    loss_fn = nn.MSELoss(reduction="mean")
+    loss_fn = nn.MSELoss(reduction="sum")
     loss = loss_fn(x_hat, x)
+
     return loss
 
-def vae_loss(input, x):
+def vae_loss(input, x, beta=0.8):
     x_hat, mu, logvar = input
     recon_loss_fn = nn.MSELoss(reduction="mean")
     recon_loss = recon_loss_fn(x_hat, x)
     kl_div = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
-    return recon_loss + kl_div
+    return recon_loss + beta * kl_div
 
 
-def vqvae_loss(input, x): 
+def vqvae_loss(input, x, commitment_weight=0.25): 
     x_hat, z_q, z_e, indices = input
-    codebook_loss = F.mse_loss(z_e.detach(), z_q)
+    # codebook_loss = F.mse_loss(z_e.detach(), z_q)
     commitment_loss = F.mse_loss(z_e, z_q.detach())
-    recon_loss = F.mse_loss(x_hat, x, reduction="mean")
-    return recon_loss + 0.25*commitment_loss
+    recon_loss = F.mse_loss(x_hat, x)
+    return recon_loss + commitment_weight*commitment_loss

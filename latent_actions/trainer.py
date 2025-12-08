@@ -68,7 +68,7 @@ class AE_Trainer():
         self.val_losses.append(running_loss / (len(val_loader)))
         return running_loss / (len(val_loader))
     
-    def train_loop(self, trainloader,val_loader):
+    def train_loop(self, trainloader,val_loader, codebook_clear=False):
         self.model.cuda()
         iter = 0
         for epoch in range(self.optim_params["epochs"]): 
@@ -82,9 +82,9 @@ class AE_Trainer():
                 states = states.to("cuda")
                 actions = actions.to("cuda")
                 self.optim.zero_grad()
-
                 self.train_step(states, actions, val_loader,iter)
-                
+                if codebook_clear: 
+                    self.model.quantizer.expire_codes(self.model.z_e)                
                 iter+= 1
         os.makedirs(self.train_save_dir, exist_ok = True)
         losses_path = os.path.join(self.train_save_dir, "losses.npy")

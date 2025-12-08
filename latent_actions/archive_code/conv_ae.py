@@ -60,7 +60,7 @@ class ConvDecoder(nn.Module):
         return x.permute(0,2,1)
 
 
-class VAE(nn.Module):
+class Conv_VAE(nn.Module):
     def __init__(self, seq_len=60, action_dim=10,
                  enc_channels=[64,128,256],
                  dec_channels=[256,128,64],
@@ -90,11 +90,31 @@ class VAE(nn.Module):
         return out, mu, logvar
 
     
-def vae_loss(recon_x, x, mu, logvar):
-    recon_loss = F.mse_loss(recon_x, x, reduction="mean")
-    kl = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
-    return recon_loss + kl, recon_loss, kl
-    
+# def vae_loss(recon_x, x, mu, logvar):
+#     recon_loss = F.mse_loss(recon_x, x, reduction="mean")
+#     kl = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+#     return recon_loss + kl, recon_loss, kl
+
+def ae_loss(x, x_hat): 
+    loss_fn = nn.MSELoss(reduction="mean")
+    loss = loss_fn(x_hat, x)
+
+    return loss
+
+def vae_loss(input, x):
+    x_hat, mu, logvar = input
+    recon_loss_fn = nn.MSELoss(reduction="mean")
+    recon_loss = recon_loss_fn(x_hat, x)
+    kl_div = -0.5 * torch.mean(1 + logvar - mu.pow(2) - logvar.exp())
+    return recon_loss + 0.8 * kl_div
+
+
+def vqvae_loss(input, x): 
+    x_hat, z_q, z_e, indices = input
+    # codebook_loss = F.mse_loss(z_e.detach(), z_q)
+    commitment_loss = F.mse_loss(z_e, z_q.detach())
+    recon_loss = F.mse_loss(x_hat, x, reduction="mean")
+    return recon_loss + 0.25*commitment_loss    
 # --------------------------------------------------------
 #      Vector Quantization module (EMA version)
 # --------------------------------------------------------
@@ -230,7 +250,7 @@ class ConvDecoder(nn.Module):
 # --------------------------------------------------------
 #                     VQ-VAE
 # --------------------------------------------------------
-class VQVAE(nn.Module):
+class Conv_VQVAE(nn.Module):
     def __init__(self, seq_len=60, action_dim=10,
                  enc_channels=[64,128,256],
                  dec_channels=[256,128,64],

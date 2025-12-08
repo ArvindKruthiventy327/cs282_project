@@ -4,10 +4,10 @@ import yaml
 import torch.nn as nn 
 
 from trainer_02 import AE_Trainer
-from mlp_ae import MLPAutoEncoder, MLPVAE, MLP_VQVAE, ae_loss, vae_loss, vqvae_loss
+# from mlp_ae import MLPAutoEncoder, MLPVAE, MLP_VQVAE, ae_loss, vae_loss, vqvae_loss
+from cnn_ae import CNN_VAE, CNN_VQVAE, ae_loss, vae_loss, vqvae_loss
 from torch.utils.data import DataLoader
 from latent_dataset import LatentActionBuffer, IterableWrapper
-from functools import partial
 
 def get_test_accuracy(model, test_dataset, model_type="VAE"): 
     
@@ -22,11 +22,11 @@ def get_test_accuracy(model, test_dataset, model_type="VAE"):
     with torch.no_grad(): 
         for batch in test_loader: 
             states = batch[0]
-            actions = batch[1].flatten(start_dim=1, end_dim=2) 
+            actions = batch[1]
 
             states = states.to("cuda")
             actions = actions.to("cuda")
-            gt = torch.cat([states, actions], dim=1)
+            gt = actions
             if model_type == "VAE":
                 pred, mu,logvar = model(states, actions)
             elif model_type == "VQVAE": 
@@ -46,22 +46,28 @@ def start_trainer(cfg_file):
 
     with open(cfg_file) as stream: 
         cfg = yaml.safe_load(stream)
+        model_params = cfg["model"]
         model_type = cfg["model"]["type"]
-        obs_dim = cfg["model"]["obs_dim"]
-        ac_dim = cfg["model"]["ac_dim"]
-        latent_dim = cfg["model"]["latent_dim"]
-        hidden = cfg["model"]["hidden"]
+
         if model_type == "VAE": 
-            model = MLPVAE(obs_dim, ac_dim, latent_dim, hidden)
+            obs_dim = model_params["obs_dim"]
+            ac_dim = model_params["ac_dim"]
+            latent_dim = model_params["latent_dim"]
+            channels = model_params["channels"]
+            dec_in_padding = model_params["dec_in_padding"]
+            dec_out_padding =  model_params["dec_out_padding"]
+            model = CNN_VAE(ac_dim[0], obs_dim[0], ac_dim[-1], channels,dec_in_padding, dec_out_padding, latent_dim)
             loss_fn = vae_loss
-        elif model_type == "AE": 
-            model = MLPAutoEncoder(obs_dim, ac_dim, latent_dim, hidden)
-            loss_fn = ae_loss
-        
+                
         elif model_type == "VQVAE":
             n_embeddings = cfg["model"]["n_embeddings"] 
-            
-            model = MLP_VQVAE(obs_dim, ac_dim, latent_dim, hidden, n_embeddings=n_embeddings)
+            obs_dim = model_params["obs_dim"]
+            ac_dim = model_params["ac_dim"]
+            latent_dim = model_params["latent_dim"]
+            channels = model_params["channels"]
+            dec_in_padding = model_params["dec_in_padding"]
+            dec_out_padding =  model_params["dec_out_padding"]
+            model = CNN_VQVAE(ac_dim[0], obs_dim[0], ac_dim[-1], channels,dec_in_padding, dec_out_padding, latent_dim, n_embeddings=n_embeddings)
             loss_fn = vqvae_loss
 
         raw_data = cfg["dataloader"]["raw_data"]
@@ -98,11 +104,10 @@ def start_trainer(cfg_file):
                                   batch_size = cfg["dataloader"]["batch_size"], 
                                   shuffle = True, 
                                   num_workers=10) 
-        print(f"Model type train_mlp_ae: {model_type}")
         if model_type == "VQVAE":
-            trainer = AE_Trainer(model,loss_fn, "cuda", cfg["optim"], cfg["train_dir"], model_type=model_type, dist_reg = cfg["commitment_cost"])
+            trainer = AE_Trainer(model,loss_fn, "cuda", cfg["optim"], cfg["train_dir"],1000)
         else: 
-            trainer = AE_Trainer(model,loss_fn, "cuda", cfg["optim"], cfg["train_dir"],model_type=model_type, dist_reg=cfg["beta"])
+            trainer = AE_Trainer(model,loss_fn, "cuda", cfg["optim"], cfg["train_dir"],1000)
         return model, train_loader, val_loader, test_action_dataset, trainer
 
 if __name__ == "__main__": 
@@ -115,10 +120,10 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     model, train_loader, val_loader, test_action_dataset,trainer =  start_trainer(args.cfg_path)
-    trainer.train_loop(train_loader, val_loader, 1000)
+    trainer.train_loop(train_loader, val_loader, 1000, arch="conv")
     with open(args.cfg_path) as stream: 
         cfg = yaml.safe_load(stream)
-    test_stats = get_test_accuracy(trainer.model, test_action_dataset, cfg["model"]["type"])
+    test_stats = get_test_accuracy(trainer.model, test_action_dataset,cfg["model"]["type"])
     print(test_stats)
     
     with open(os.path.join(cfg["train_dir"], "test_stats.json"),"w") as f :
