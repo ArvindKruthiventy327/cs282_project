@@ -1,3 +1,9 @@
+
+# Our Code Documentation 
+Our autoencoders are included in the latent actions folder with four notebooks (cnn-vae, cnn-vqvae, mlp-vae, mlp-vae) that allow you to replicate our visualizations and hyperparameter sweeps. These notebooks require that you download the the latent action datasets that are linked below (it assumes that you have Berkeley Dropbox accounts). Three-piece assembly link: (https://berkeley.box.com/s/1e3gogkfsste248phxpraus8z0ped1gp), Stack three link: (https://berkeley.box.com/s/aruwtlh60asvtkmn6h1leah6tsj8hghs)  and Threading link: (https://berkeley.box.com/s/49r7v1dpyyvlch539mzjz3yh6narjpq1)
+```bash 
+```
+# Documentation for base DiT-Policy Included
 # The Ingredients for Robotic Diffusion Transformers
 [![arXiv](https://img.shields.io/badge/arXiv-2410.10088-df2a2a.svg)](https://arxiv.org/pdf/2410.10088)
 [![HF Dataset](https://img.shields.io/badge/%F0%9F%A4%97-Dataset-yellow)](https://huggingface.co/datasets/oier-mees/BiPlay)
