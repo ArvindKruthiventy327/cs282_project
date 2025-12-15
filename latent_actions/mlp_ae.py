@@ -148,6 +148,7 @@ class MLPVAE(MLPAutoEncoder):
 #      Vector Quantizer with EMA (same as CNN version)
 # --------------------------------------------------------
 class VectorQuantizerEMA(nn.Module):
+    
     def __init__(self, n_embeddings, embedding_dim, decay=0.99, eps=1e-5):
         super().__init__()
         self.n_embeddings = n_embeddings
